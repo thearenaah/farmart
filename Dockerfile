@@ -1,4 +1,4 @@
-FROM dinhquochan/laravel:php8.1
+FROM dinhquochan/laravel:php8.2
 
 WORKDIR /var/www/html
 
