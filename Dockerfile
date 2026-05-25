@@ -11,6 +11,11 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction
 
 RUN npm install && npm run production 2>/dev/null || true
 
-RUN chown -R nginx:nginx /var/www/html/storage /var/www/html/bootstrap/cache
+RUN mkdir -p storage/framework/cache/data \
+             storage/framework/sessions \
+             storage/framework/views \
+             storage/logs \
+             bootstrap/cache && \
+    chmod -R 777 storage bootstrap/cache
 
 EXPOSE 80
