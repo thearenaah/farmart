@@ -11,6 +11,9 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction
 
 RUN npm install && npm run production 2>/dev/null || true
 
+# Publish all vendor assets into public/ at build time
+RUN php artisan vendor:publish --all --force 2>/dev/null || true
+
 RUN mkdir -p storage/framework/cache/data \
              storage/framework/sessions \
              storage/framework/views \
