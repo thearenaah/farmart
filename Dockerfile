@@ -24,8 +24,10 @@ RUN mkdir -p storage/framework/cache/data \
              storage/framework/views \
              storage/logs \
              storage/app/purifier/HTML \
-             bootstrap/cache && \
-    chmod -R 777 storage bootstrap/cache && \
-    chmod -R 777 public/vendor public/themes
+             bootstrap/cache \
+             public/vendor/core/plugins \
+             public/vendor/core/packages \
+             public/vendor/core/core && \
+    chmod -R 777 storage bootstrap/cache public/vendor public/themes
 
 EXPOSE 80
