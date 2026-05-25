@@ -1,13 +1,15 @@
 #!/bin/sh
 
-# Create required storage directories
+# Fix permissions AFTER volume mount
+chmod -R 777 /var/www/html/storage
+chmod -R 777 /var/www/html/bootstrap/cache
+
+# Create required directories
 mkdir -p /var/www/html/storage/framework/cache/data
 mkdir -p /var/www/html/storage/framework/sessions
 mkdir -p /var/www/html/storage/framework/views
 mkdir -p /var/www/html/storage/logs
-mkdir -p /var/www/html/bootstrap/cache
 chmod -R 777 /var/www/html/storage
-chmod -R 777 /var/www/html/bootstrap/cache
 
 # Link storage
 php artisan storage:link --force 2>/dev/null || true
@@ -19,11 +21,11 @@ if [ -n "$STORAGE_PATH" ]; then
     ln -sf "$STORAGE_PATH" /var/www/html/storage/app/public
 fi
 
-# Publish vendor assets (CSS/JS for plugins and themes)
-php artisan vendor:publish --all --force 2>/dev/null || true
-
 # Run migrations
 php artisan migrate --force 2>/dev/null || true
+
+# Publish vendor assets only (not config/views - causes setting() error)
+php artisan vendor:publish --tag=public --force 2>/dev/null || true
 
 # Clear caches
 php artisan config:clear
