@@ -19,6 +19,9 @@ if [ -n "$STORAGE_PATH" ]; then
     ln -sf "$STORAGE_PATH" /var/www/html/storage/app/public
 fi
 
+# Publish vendor assets (CSS/JS for plugins and themes)
+php artisan vendor:publish --all --force 2>/dev/null || true
+
 # Run migrations
 php artisan migrate --force 2>/dev/null || true
 
