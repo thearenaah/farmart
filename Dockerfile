@@ -11,14 +11,21 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction
 
 RUN npm install && npm run production 2>/dev/null || true
 
-# Publish all vendor assets into public/ at build time
-RUN php artisan vendor:publish --all --force 2>/dev/null || true
+# Copy platform assets directly to public
+RUN find platform -type d -name "public" | while read dir; do \
+      pkg=$(echo $dir | sed 's|platform/||' | sed 's|/public||' | tr '/' '-'); \
+      dest="public/vendor/core/$pkg"; \
+      mkdir -p "$dest"; \
+      cp -r "$dir/." "$dest/"; \
+    done
 
 RUN mkdir -p storage/framework/cache/data \
              storage/framework/sessions \
              storage/framework/views \
              storage/logs \
+             storage/app/purifier/HTML \
              bootstrap/cache && \
-    chmod -R 777 storage bootstrap/cache
+    chmod -R 777 storage bootstrap/cache && \
+    chmod -R 777 public/vendor public/themes
 
 EXPOSE 80
