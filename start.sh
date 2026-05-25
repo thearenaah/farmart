@@ -3,10 +3,13 @@
 # Fix permissions after volume mount
 chmod -R 777 /var/www/html/storage
 chmod -R 777 /var/www/html/bootstrap/cache
+
+# Create required directories
 mkdir -p /var/www/html/storage/framework/cache/data
 mkdir -p /var/www/html/storage/framework/sessions
 mkdir -p /var/www/html/storage/framework/views
 mkdir -p /var/www/html/storage/logs
+mkdir -p /var/www/html/storage/app/purifier/HTML
 chmod -R 777 /var/www/html/storage
 
 # Link storage
@@ -25,11 +28,8 @@ php artisan cache:clear
 php artisan view:clear
 php artisan route:clear
 
+# Start php-fpm
 PHP_FPM=$(which php-fpm82 || which php-fpm8 || which php-fpm || echo "")
 $PHP_FPM -D
 
 nginx -g "daemon off;"
-
-# Create HTMLPurifier cache dir
-mkdir -p /var/www/html/storage/app/purifier/HTML
-chmod -R 777 /var/www/html/storage/app/purifier
