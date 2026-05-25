@@ -29,3 +29,7 @@ PHP_FPM=$(which php-fpm82 || which php-fpm8 || which php-fpm || echo "")
 $PHP_FPM -D
 
 nginx -g "daemon off;"
+
+# Create HTMLPurifier cache dir
+mkdir -p /var/www/html/storage/app/purifier/HTML
+chmod -R 777 /var/www/html/storage/app/purifier
