@@ -12,18 +12,25 @@ mkdir -p /var/www/html/storage/logs
 mkdir -p /var/www/html/storage/app/purifier/HTML
 chmod -R 777 /var/www/html/storage
 
-# Persist platform/plugins on volume
-if [ -n "$STORAGE_PATH" ]; then
-    mkdir -p /data/plugins
-    # Copy built-in plugins to volume on first run
-    if [ ! -f /data/plugins/.initialized ]; then
-        cp -r /var/www/html/platform/plugins/. /data/plugins/
-        touch /data/plugins/.initialized
+# Restore any user-uploaded plugins from volume back into container
+mkdir -p /data/plugins
+for plugin_dir in /data/plugins/*/; do
+    plugin_name=$(basename "$plugin_dir")
+    if [ ! -d "/var/www/html/platform/plugins/$plugin_name" ]; then
+        cp -r "$plugin_dir" "/var/www/html/platform/plugins/$plugin_name"
     fi
-    # Mount volume plugins over container plugins
-    rm -rf /var/www/html/platform/plugins
-    ln -sf /data/plugins /var/www/html/platform/plugins
-fi
+done
+chmod -R 777 /var/www/html/platform/plugins
+
+# Hook: after a plugin is uploaded, also save it to volume
+# (This is handled via a post-upload script or we watch the dir)
+# For now, sync container plugins to volume that aren't already there
+for plugin_dir in /var/www/html/platform/plugins/*/; do
+    plugin_name=$(basename "$plugin_dir")
+    if [ ! -d "/data/plugins/$plugin_name" ]; then
+        cp -r "$plugin_dir" "/data/plugins/$plugin_name"
+    fi
+done
 
 # Link storage
 php artisan storage:link --force 2>/dev/null || true
