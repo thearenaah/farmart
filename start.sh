@@ -21,8 +21,6 @@ for plugin_dir in /data/plugins/*/; do
     fi
 done
 chmod -R 777 /var/www/html/platform/plugins
-chmod -R 777 /var/www/html/public/vendor
-chmod -R 777 /var/www/html/public/themes
 
 # Hook: after a plugin is uploaded, also save it to volume
 # (This is handled via a post-upload script or we watch the dir)
