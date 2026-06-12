@@ -145,6 +145,7 @@ class RezgoConnectorServiceProvider extends ServiceProvider
             // Only show on product edit page in admin
             if ($object instanceof \Botble\Ecommerce\Models\Product && $context === 'advanced') {
                 $product = $object;
+                if (!$product->id) return;
                 $mapping = \Botble\RezgoConnector\Models\RezgoProductMapping::getByProductId($product->id);
                 if (!$mapping) return;
                 echo view('rezgo::components.product-markup-box', [
@@ -364,7 +365,27 @@ class RezgoConnectorServiceProvider extends ServiceProvider
                 \Log::error('Rezgo: failed to save rezgo_meta on order placed: ' . $e->getMessage());
             }
         });
+
+
+
+        // Rezgo UID column on ecommerce product list
+        add_filter(BASE_FILTER_TABLE_HEADINGS, function ($columns, $model, $table = null) {
+            if (!($model instanceof \Botble\Ecommerce\Models\Product)) return $columns;
+            $columns['rezgo_uid'] = ['title' => 'Rezgo UID', 'class' => 'text-start no-sort', 'orderable' => false, 'searchable' => false];
+            return $columns;
+        }, 10, 3);
+
+        add_filter(BASE_FILTER_GET_LIST_DATA, function ($data, $model, $table = null) {
+            if (!($model instanceof \Botble\Ecommerce\Models\Product)) return $data;
+            static $cache = null;
+            if ($cache === null) $cache = \Botble\RezgoConnector\Models\RezgoProductMapping::pluck('rezgo_uid', 'product_id')->toArray();
+            return $data->addColumn('rezgo_uid', function ($item) use ($cache) {
+                $uid = $cache[$item->id] ?? null;
+                return $uid ? '<code style="font-size:11px;">' . e($uid) . '</code>' : '<span class="text-muted">-</span>';
+            });
+        }, 10, 3);
     }
+
 
     /**
      * After the HTTP response is sent, silently sync Rezgo inventory.

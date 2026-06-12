@@ -31,6 +31,26 @@
             <input type="hidden" name="rezgo_title"    value="{{ $mapping->rezgo_title }}">
             <input type="hidden" name="passenger_type" value="{{ $mapping->passenger_type }}">
 
+            <div class="row g-3 mb-3 pb-3 border-bottom" id="rezgo-info-wrap-{{ $mapping->id }}">
+                <div class="col-md-2">
+                    <label class="form-label text-muted small fw-semibold">Mapping ID</label>
+                    <input type="text" class="form-control form-control-sm" value="{{ $mapping->id }}" readonly>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label text-muted small fw-semibold">Rezgo Tour UID</label>
+                    <input type="text" class="form-control form-control-sm font-monospace" id="ruid-{{ $mapping->id }}" value="{{ $mapping->rezgo_uid ?? '' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label text-muted small fw-semibold">Rezgo Ticket Name</label>
+                    <input type="text" class="form-control form-control-sm" id="rtitle-{{ $mapping->id }}" value="{{ $mapping->rezgo_title ?? '' }}">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="button" class="btn btn-sm btn-primary w-100" onclick="rezgoSaveInfo('{{ $mapping->id }}')">Save</button>
+                </div>
+                <div class="col-12">
+                    <small class="text-muted" id="rezgo-info-msg-{{ $mapping->id }}"></small>
+                </div>
+            </div>
             <div class="row g-3">
                 {{-- Wholesale price (read-only display) --}}
                 <div class="col-md-4">
@@ -174,5 +194,23 @@
             });
         }
     });
+
+    window.rezgoSaveInfo = function(mappingId) {
+        var uid = document.getElementById('ruid-' + mappingId).value.trim();
+        var title = document.getElementById('rtitle-' + mappingId).value.trim();
+        var msg = document.getElementById('rezgo-info-msg-' + mappingId);
+        var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+        if (!uid) { msg.textContent = 'UID is required.'; msg.style.color = 'red'; return; }
+        msg.textContent = 'Saving...'; msg.style.color = '';
+        var fd = new FormData();
+        fd.append('_token', csrf);
+        fd.append('mapping_id', mappingId);
+        fd.append('rezgo_uid', uid);
+        fd.append('rezgo_title', title);
+        fetch('/admin/rezgo-connector/product-mappings/update-info', {method: 'POST', body: fd})
+            .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+            .then(function() { msg.textContent = 'Saved!'; msg.style.color = 'green'; setTimeout(function(){ msg.textContent=''; }, 2000); })
+            .catch(function(e) { msg.textContent = 'Error: ' + e; msg.style.color = 'red'; });
+    };
 })();
 </script>

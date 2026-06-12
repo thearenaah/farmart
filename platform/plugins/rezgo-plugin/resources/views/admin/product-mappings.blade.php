@@ -39,13 +39,26 @@
 
                 <div class="row row-cards">
                     <div class="col-12">
-                        <div class="card">
+                        <div class="card mb-3" id="bulk-action-bar" style="display:none;">
+                            <div class="card-body py-2 d-flex align-items-center gap-3 flex-wrap">
+                                <strong id="bulk-count">0</strong> mapping(s) selected
+                                <form id="bulk-publish-form" action="{{ route('rezgo.product-mappings.bulk-publish') }}" method="POST" class="d-flex align-items-center gap-2 ms-3">
+                                    @csrf
+                                    <div id="bulk-hidden-ids"></div>
+                                    <button type="submit" class="btn btn-success btn-sm"><i class="ti ti-check me-1"></i> Publish Selected Products</button>
+                                </form>
+                                <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" id="deselect-all-mappings">Deselect All</button>
+                            </div>
+                        </div>
+                    <div class="card">
                             <div class="table-responsive">
                                 <table class="table table-vcenter table-hover">
                                     <thead>
                                         <tr>
+                                            <th style="width:40px;"><input type="checkbox" class="form-check-input" id="check-all-mappings"></th>
                                             <th>{{ __('Product') }}</th>
-                                            <th style="width: 40%;">{{ __('Rezgo Inventory') }}</th>
+                                            <th>{{ __('Rezgo Ticket Name') }}</th>
+                                            <th>{{ __('Rezgo UID') }}</th>
                                             <th>{{ __('Passenger Type') }}</th>
                                             <th>{{ __('Status') }}</th>
                                             <th style="width: 150px;">{{ __('Actions') }}</th>
@@ -54,11 +67,17 @@
                                     <tbody>
                                         @forelse ($mappings as $mapping)
                                             <tr>
+                                                <td style="width:40px;">
+                                                    <input type="checkbox" class="form-check-input mapping-check" value="{{ $mapping->id }}">
+                                                </td>
                                                 <td>
                                                     <strong>{{ $mapping->product->name ?? 'N/A' }}</strong>
                                                 </td>
                                                 <td style="word-break: break-word;">
                                                     <small>{{ $mapping->rezgo_title ?? '—' }}</small>
+                                                </td>
+                                                <td>
+                                                    <code class="small">{{ $mapping->rezgo_uid ?? '—' }}</code>
                                                 </td>
                                                 <td>
                                                     {{ ucfirst($mapping->passenger_type) }}
@@ -68,13 +87,13 @@
                                                 </td>
                                                 <td>
                                                     <a
-                                                        class="btn btn-icon btn-primary"
-                                                        data-bs-toggle="modal"
-                                                        data-bs-target="#mapModal"
-                                                        data-bs-toggle="tooltip"
-                                                        data-bs-original-title="{{ __('Edit mapping') }}"
+                                                        class="btn btn-icon btn-primary edit-mapping-btn"
                                                         href="#"
-                                                        onclick="setMappingData({{ $mapping->id }}, {{ $mapping->product_id }}, '{{ $mapping->rezgo_uid }}', '{{ $mapping->rezgo_title }}', '{{ $mapping->passenger_type }}'); return false;"
+                                                        data-mapping-id="{{ $mapping->id }}"
+                                                        data-product-id="{{ $mapping->product_id }}"
+                                                        data-rezgo-uid="{{ $mapping->rezgo_uid }}"
+                                                        data-rezgo-title="{{ $mapping->rezgo_title }}"
+                                                        data-passenger-type="{{ $mapping->passenger_type }}"
                                                     >
                                                         <x-core::icon name="ti ti-pencil" />
                                                     </a>
@@ -95,7 +114,7 @@
                                             </tr>
                                         @empty
                                             <tr>
-                                                <td colspan="5" class="text-center text-muted py-4">
+                                                <td colspan="7" class="text-center text-muted py-4">
                                                     {{ __('No product mappings configured') }}
                                                 </td>
                                             </tr>
@@ -144,7 +163,10 @@
                                                         <code>{{ $tour['uid'] ?? '—' }}</code>
                                                     </td>
                                                     <td>
-                                                        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#mapModal" onclick="setTourData('{{ $tour['uid'] ?? '' }}', '{{ $tour['name'] ?? $tour['item'] ?? '' }}', '{{ $tour['option'] ?? '' }}')">
+                                                        <button type="button" class="btn btn-sm btn-primary map-tour-btn"
+                                                            data-uid="{{ $tour['uid'] ?? '' }}"
+                                                            data-title="{{ $tour['name'] ?? $tour['item'] ?? '' }}"
+                                                            data-option="{{ $tour['option'] ?? '' }}">
                                                             {{ __('Map Product') }}
                                                         </button>
                                                         <form action="{{ route('rezgo.import-as-draft') }}" method="POST" style="display:inline;">
@@ -229,6 +251,7 @@
                     <div class="mb-3">
                         <label class="form-label">{{ __('Rezgo Inventory Title') }}</label>
                         <input type="text" class="form-control" name="rezgo_title" id="rezgoTitle">
+                        <small class="text-muted" id="rezgoTitleHint" style="display:none;">Title is set from Rezgo and cannot be changed here.</small>
                     </div>
 
                     <input type="hidden" id="rezgoOption" name="rezgo_option">
@@ -252,41 +275,62 @@
 </div>
 
 <script>
+function openMapModal() {
+    var el = document.getElementById('mapModal');
+    if (el) (bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el)).show();
+}
 function setTourData(uid, title, option = '') {
-    // New mapping mode - populate fields when modal opens
-    const mapModal = document.getElementById('mapModal');
-    if (mapModal) {
-        const bsModal = bootstrap.Modal.getInstance(mapModal) || new bootstrap.Modal(mapModal);
-        
-        mapModal.addEventListener('shown.bs.modal', function populateNewMapping() {
-            document.getElementById('mappingId').value = '';
-            document.getElementById('productSelect').value = '';
-            document.getElementById('rezgoUid').value = uid || '';
-            document.getElementById('rezgoTitle').value = (title || '') + (option ? ' — ' + option : '');
-            document.getElementById('rezgoOption').value = option || '';
-            document.getElementById('passengerType').value = 'adult';
-            mapModal.removeEventListener('shown.bs.modal', populateNewMapping);
-        }, { once: true });
-    }
+    document.getElementById('mappingId').value = '';
+    document.getElementById('productSelect').value = '';
+    var uidField = document.getElementById('rezgoUid');
+    var titleField = document.getElementById('rezgoTitle');
+    uidField.value = uid || '';
+    uidField.setAttribute('readonly', 'readonly');
+    titleField.value = (title || '') + (option ? ' — ' + option : '');
+    titleField.setAttribute('readonly', 'readonly');
+    document.getElementById('rezgoTitleHint').style.display = 'block';
+    document.getElementById('rezgoOption').value = option || '';
+    document.getElementById('passengerType').value = 'adult';
+    openMapModal();
 }
 
 function setMappingData(mappingId, productId, uid, title, passengerType) {
-    // Edit mapping mode - populate fields when modal opens
-    const mapModal = document.getElementById('mapModal');
-    if (mapModal) {
-        const bsModal = bootstrap.Modal.getInstance(mapModal) || new bootstrap.Modal(mapModal);
-        
-        mapModal.addEventListener('shown.bs.modal', function populateEditMapping() {
-            document.getElementById('mappingId').value = mappingId || '';
-            document.getElementById('productSelect').value = productId || '';
-            document.getElementById('rezgoUid').value = uid || '';
-            document.getElementById('rezgoTitle').value = title || '';
-            document.getElementById('rezgoOption').value = '';
-            document.getElementById('passengerType').value = passengerType || 'adult';
-            mapModal.removeEventListener('shown.bs.modal', populateEditMapping);
-        }, { once: true });
-    }
+    document.getElementById('mappingId').value = mappingId || '';
+    document.getElementById('productSelect').value = productId || '';
+    var uidField = document.getElementById('rezgoUid');
+    var titleField = document.getElementById('rezgoTitle');
+    uidField.value = uid || '';
+    uidField.removeAttribute('readonly');
+    titleField.value = title || '';
+    titleField.removeAttribute('readonly');
+    document.getElementById('rezgoTitleHint').style.display = 'none';
+    document.getElementById('rezgoOption').value = '';
+    document.getElementById('passengerType').value = passengerType || 'adult';
+    openMapModal();
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.map-tour-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            setTourData(
+                this.dataset.uid,
+                this.dataset.title,
+                this.dataset.option
+            );
+        });
+    });
+    document.querySelectorAll('.edit-mapping-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            setMappingData(
+                this.dataset.mappingId,
+                this.dataset.productId,
+                this.dataset.rezgoUid,
+                this.dataset.rezgoTitle,
+                this.dataset.passengerType
+            );
+        });
+    });
+});
 
 // Reset form when modal is closed
 document.addEventListener('DOMContentLoaded', function() {
@@ -294,8 +338,38 @@ document.addEventListener('DOMContentLoaded', function() {
     if (mapModal) {
         mapModal.addEventListener('hidden.bs.modal', function() {
             document.getElementById('mappingId').value = '';
+            document.getElementById('rezgoUid').removeAttribute('readonly');
+            document.getElementById('rezgoTitle').removeAttribute('readonly');
+            document.getElementById('rezgoTitleHint').style.display = 'none';
         });
     }
 });
 </script>
+
+<script>
+(function(){
+var checkAll=document.getElementById('check-all-mappings');
+var bar=document.getElementById('bulk-action-bar');
+var cnt=document.getElementById('bulk-count');
+var ids=document.getElementById('bulk-hidden-ids');
+function upd(){
+  var ch=Array.from(document.querySelectorAll('.mapping-check:checked'));
+  var al=document.querySelectorAll('.mapping-check');
+  if(ch.length){bar.style.display='block';cnt.textContent=ch.length;ids.innerHTML='';ch.forEach(function(x){var i=document.createElement('input');i.type='hidden';i.name='mapping_ids[]';i.value=x.value;ids.appendChild(i);});}
+  else{bar.style.display='none';}
+  if(checkAll){checkAll.indeterminate=ch.length>0&&ch.length<al.length;checkAll.checked=al.length>0&&ch.length===al.length;}
+}
+if(checkAll)checkAll.addEventListener('change',function(){document.querySelectorAll('.mapping-check').forEach(function(x){x.checked=checkAll.checked;});upd();});
+document.querySelectorAll('.mapping-check').forEach(function(x){x.addEventListener('change',upd);});
+var db=document.getElementById('deselect-all-mappings');
+if(db)db.addEventListener('click',function(){document.querySelectorAll('.mapping-check').forEach(function(x){x.checked=false;});upd();});
+var csrf=(document.querySelector('meta[name=csrf-token]')||{}).content||'';
+document.querySelectorAll('.rezgo-title-field').forEach(function(inp){
+  function sv(){var fd=new FormData();fd.append('_token',csrf);fd.append('mapping_id',inp.dataset.mappingId);fd.append('rezgo_title',inp.value.trim());inp.style.borderColor='#aaa';fetch('{{ route("rezgo.product-mappings.update-title") }}',{method:'POST',body:fd}).then(function(r){inp.style.borderColor=r.ok?'#28a745':'#dc3545';setTimeout(function(){inp.style.borderColor='';},2000);}).catch(function(){inp.style.borderColor='#dc3545';});}
+  inp.addEventListener('blur',sv);
+  inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();sv();}});
+});
+})();
+</script>
+
 @endsection

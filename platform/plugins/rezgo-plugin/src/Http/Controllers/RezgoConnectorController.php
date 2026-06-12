@@ -923,6 +923,44 @@ class RezgoConnectorController extends BaseController
         return back()->with('info', 'External sync is managed via .env. Set DZM_COATAA_DB_* variables and REZGO_EXTERNAL_SYNC_ENABLED=true, then run: php artisan config:cache');
     }
 
+    public function updateMappingInfo(\Illuminate\Http\Request $request): JsonResponse
+    {
+        $request->validate([
+            'mapping_id' => 'required|exists:rezgo_product_mappings,id',
+            'rezgo_uid'  => 'required|string|max:255',
+            'rezgo_title'=> 'nullable|string|max:255',
+        ]);
+        RezgoProductMapping::where('id', $request->mapping_id)->update([
+            'rezgo_uid'   => $request->rezgo_uid,
+            'rezgo_title' => $request->rezgo_title,
+        ]);
+        return response()->json(['success' => true]);
+    }
+
+    public function updateMappingTitle(\Illuminate\Http\Request $request): JsonResponse
+    {
+        $request->validate([
+            'mapping_id'  => 'required|exists:rezgo_product_mappings,id',
+            'rezgo_title' => 'required|string|max:255',
+        ]);
+        RezgoProductMapping::where('id', $request->mapping_id)->update(['rezgo_title' => $request->rezgo_title]);
+        return response()->json(['success' => true]);
+    }
+
+    public function bulkPublishMappings(\Illuminate\Http\Request $request): RedirectResponse
+    {
+        $request->validate(['mapping_ids' => 'required|array', 'mapping_ids.*' => 'integer|exists:rezgo_product_mappings,id']);
+        $mappings = RezgoProductMapping::whereIn('id', $request->input('mapping_ids'))->get();
+        $n = 0;
+        foreach ($mappings as $m) {
+            \Botble\Ecommerce\Models\Product::where('id', $m->product_id)->update(['status' => 'published']);
+            $n++;
+        }
+        RezgoLog::sync('bulk_publish', null, "Bulk published {$n} product(s)");
+        return back()->with('success', "{$n} product(s) published successfully.");
+    }
+
+
     /**
      * Attach Rezgo images using direct CDN URLs — Railway-safe, no local disk needed.
      */

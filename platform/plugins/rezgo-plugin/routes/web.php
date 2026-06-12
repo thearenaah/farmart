@@ -29,6 +29,9 @@ AdminHelper::registerRoutes(function (): void {
             });
 
         Route::post('/import-as-draft', [RezgoConnectorController::class, 'importAsDraft'])->name('import-as-draft');
+        Route::post('/product-mappings/update-title', [RezgoConnectorController::class, 'updateMappingTitle'])->name('product-mappings.update-title');
+        Route::post('/product-mappings/update-info', [RezgoConnectorController::class, 'updateMappingInfo'])->name('product-mappings.update-info');
+        Route::post('/product-mappings/bulk-publish', [RezgoConnectorController::class, 'bulkPublishMappings'])->name('product-mappings.bulk-publish');
         Route::get('/mass-import', [RezgoConnectorController::class, 'showMassImport'])->name('mass-import');
         Route::post('/mass-import', [RezgoConnectorController::class, 'runMassImport'])->name('mass-import.run');
         Route::post('/mass-import/import-one', [RezgoConnectorController::class, 'importOne'])->name('mass-import.import-one');
